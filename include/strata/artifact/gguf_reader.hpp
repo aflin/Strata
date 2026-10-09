@@ -138,6 +138,10 @@ inline bool block_geometry(uint32_t t, int& elems, int& bytes) {
         elems = 32;
         bytes = 20;
         return true;
+    case 39:   // MXFP4 (Unsloth's MXFP4_MOE experts): an E8M0 scale + 16 bytes of FP4 codes
+        elems = 32;
+        bytes = 17;
+        return true;
     case 6:
         elems = 32;
         bytes = 22;

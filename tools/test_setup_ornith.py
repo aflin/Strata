@@ -17,7 +17,7 @@ IQ4, IQ3 = "Ornith-1.5-IQ4_XS", "Ornith-1.5-IQ3_XXS"
 class Tables(unittest.TestCase):
     def test_family(self):
         fam = setup.FAMILIES["ornith"]
-        self.assertEqual(list(setup.FAMILIES)[-1], "ornith")              # last: the menu's other numbers stay
+        self.assertEqual(list(setup.FAMILIES).index("ornith"), 5)         # after qwen36: the menu's numbers stay
         self.assertTrue(setup.small_family("ornith") and setup.small_family("qwen36"))
         self.assertFalse(setup.small_family("qwen") or setup.small_family("unsloth"))
         for k, v in {"tag": "ornith15-", "own_mtp": True, "ple": False, "one_gpu": True, "vision": False,

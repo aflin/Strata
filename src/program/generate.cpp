@@ -113,6 +113,15 @@
 #include <set>
 #include <vector>
 
+// The expert and dense formats added for the other qwen35moe GGUFs (docs/QWEN35MOE_GGUFS.md); setup.py looks for this
+// text in the engine (FORMATS_ENGINE_MARK) before it uses an engine for one of them.  Q6_K gate/up is part of it, so a
+// -DSTRATA_Q6K_EXPERTS=OFF build does not claim it.
+#ifdef STRATA_Q6K_EXPERTS
+#define STRATA_FORMATS_MARK " (expert formats 2: Q6_K, IQ4_NL, MXFP4, BF16 gate/up; IQ2_XS, IQ2_S, IQ3_S, Q2_K, MXFP4 down)"
+#else
+#define STRATA_FORMATS_MARK ""
+#endif
+
 namespace {
 // Windows' WDDM driver model: native Windows, or WSL2 (its GPU goes through /dev/dxg to the Windows driver).  There,
 // pinning a large arena into two CUDA contexts leaves WDDM refusing every later allocation (the 5080 + 3090 rig);
@@ -2457,7 +2466,7 @@ int main(int argc, char** argv) {
             const auto& f = lay.fmt[(size_t) l];
             if (!strata::kernels::native_expert_supported(f.gu_type, f.d_type, f.n_embd, f.n_ff)) {
                 std::fprintf(stderr, "strata generate: layer %lld's experts are %s/%s (ggml types %d/%d), which this "
-                                     "engine has no GPU kernels for\n", (long long) l,
+                                     "engine has no GPU kernels for" STRATA_FORMATS_MARK "\n", (long long) l,
                              strata::ggml_type_name((uint32_t) f.gu_type), strata::ggml_type_name((uint32_t) f.d_type),
                              f.gu_type, f.d_type);
                 return 1;

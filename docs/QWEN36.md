@@ -25,6 +25,10 @@ Setup offers two sizes and picks the larger one that fits:
 | **UD-IQ4_XS** (recommended, ~4-bit) | 18.2 GB | 14.2 GiB (measured) | 26 GB |
 | **UD-IQ3_S** (smaller, faster) | 15.3 GB | 12.0 GiB (measured) | 24 GB; a 16 GB PC with a 12 GB card in the [low-RAM mode](MODELS.md#a-big-graphics-card-and-little-ram) (with an 8 GB card it does not fit) |
 
+Unsloth's other 18 files of this model, bartowski's 16 and KAT-Coder-V2.5-Dev's (a coding fine-tune) are installed by
+name: [docs/QWEN35MOE_GGUFS.md](QWEN35MOE_GGUFS.md) (`--family qwen36 --model UD-Q4_K_XL`, `--family
+qwen36-bartowski`, `--family kat-coder`).
+
 The file goes where every model goes (`<data>/models/qwen36-UD-IQ4_XS/`), its pack is made the usual way
 (`tools/iq_pack.py --compat-bf16`, two seconds), and the MTP draft layer is read from the same file: there is no
 separate draft download. The engine finds out which model it runs from the file (`general.architecture`):

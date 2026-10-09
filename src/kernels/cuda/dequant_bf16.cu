@@ -78,6 +78,23 @@ __device__ __forceinline__ void group32(const uint8_t* row_blocks, int gi_in_row
             put(out, j, (float) ((b[8 + j] & 15) | xh0) * d + m);
             put(out, j + 16, (float) ((b[8 + j] >> 4) | xh1) * d + m);
         }
+    } else if constexpr (TYPE == 3) {                              // Q4_1: d m qs[16]
+        const uint8_t* b = row_blocks + (size_t) gi_in_row * 20;
+        const float d = h2f(b), m = h2f(b + 2);
+        for (int j = 0; j < 16; ++j) {
+            put(out, j, (float) (b[4 + j] & 15) * d + m);
+            put(out, j + 16, (float) (b[4 + j] >> 4) * d + m);
+        }
+    } else if constexpr (TYPE == 10) {                             // Q2_K: scales[16] qs[64] d dmin
+        const uint8_t* b = row_blocks + (size_t) (gi_in_row / 8) * 84;
+        const int gi = gi_in_row % 8, h = gi / 4, jj = gi % 4;   // half of 128, 2-bit plane
+        const uint8_t* q = b + 16 + 32 * h;
+        const float d = h2f(b + 80), dmin = h2f(b + 82);
+        for (int k = 0; k < 2; ++k) {                              // two 16-value sub-blocks, a scale each
+            const uint8_t sc = b[8 * h + 2 * jj + k];
+            const float dl = d * (float) (sc & 0xF), ml = dmin * (float) (sc >> 4);
+            for (int l = 0; l < 16; ++l) put(out, 16 * k + l, dl * (float) ((q[16 * k + l] >> (2 * jj)) & 3) - ml);
+        }
     } else if constexpr (TYPE == 8) {                              // Q8_0
         const uint8_t* b = row_blocks + (size_t) gi_in_row * 34;
         const float d = h2f(b);
@@ -177,6 +194,8 @@ __global__ void dequant_kernel(const uint8_t* __restrict__ blocks, int64_t row_b
 bool geometry(int type, int& block_elems, int& block_bytes) {
     switch (type) {
     case 2: block_elems = 32; block_bytes = 18; return true;
+    case 3: block_elems = 32; block_bytes = 20; return true;
+    case 10: block_elems = 256; block_bytes = 84; return true;
     case 6: block_elems = 32; block_bytes = 22; return true;
     case 7: block_elems = 32; block_bytes = 24; return true;
     case 8: block_elems = 32; block_bytes = 34; return true;
@@ -208,6 +227,8 @@ void launch(int type, const void* blocks, int64_t row0, int64_t rows, int64_t co
 #define STRATA_DQ(TY) dequant_kernel<TY, T><<<grid, 256, 0, st>>>(p, row_bytes, row0, rows, gpr, ld, out); break
     switch (type) {
     case 2: STRATA_DQ(2);
+    case 3: STRATA_DQ(3);
+    case 10: STRATA_DQ(10);
     case 6: STRATA_DQ(6);
     case 7: STRATA_DQ(7);
     case 8: STRATA_DQ(8);

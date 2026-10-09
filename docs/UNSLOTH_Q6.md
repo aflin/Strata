@@ -6,8 +6,12 @@ same model the other packs use:
 Build it for engine 0.1.38 or newer (earlier engines read `per_layer_token_embd.weight` in IQ4_NL, Q5_0 or FP8 only,
 below). UD-Q4_K_XL's manual workflow asks nothing of setup, and neither does this one.
 
-> **0.1.40 status.** The Q6_K gate/up kernels are an opt-in build (`-DSTRATA_Q6K_EXPERTS=ON`, plus `-DSTRATA_MMQ_KQUANTS=ON`
-> for the prompt kernels): every grouped-kernel instance is loaded at start and would cost other models expert slots. The
+> **Status.** The Q6_K gate/up kernels are built by default (`-DSTRATA_Q6K_EXPERTS=OFF` drops them): they add 8.8 KB
+> of GPU code (sm_89 build: 35,495,840 -> 35,504,608 bytes), and the automatic expert cache of the Coder and of
+> Qwen3.6 UD-IQ4_XS on an RTX 4070 Ti 12 GB was the same within its run-to-run spread (~30 slots); the Coder's and
+> Qwen3.6's tokens were identical with and without them. `native_expert_parity --synthetic q6_K/q8_0` (and
+> `--shape=2048x512 q6_K/q6_K`) pass on that card. The MMQ prompt kernels for Q6_K stay opt-in
+> (`-DSTRATA_MMQ_KQUANTS=ON`): those are the instances that cost other models expert slots. The
 > Q8_0 PLE table reader is not in this release (it comes with the PLE format series, PR #651); until then this file does
 > not load. The parity programs below have not been run on a GPU yet.
 

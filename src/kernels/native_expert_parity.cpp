@@ -46,7 +46,7 @@ static double rel(const std::vector<float>& a, const std::vector<float>& b) {
 
 namespace {
 constexpr int NT = 3, E = 7;
-constexpr int64_t H = 2560, FF = 640;
+int64_t H = 2560, FF = 640;   // Flash-Next's; --synthetic --shape=HxFF sets others (qwen35moe: 2048x512)
 
 // The three ways and the dequantizers for one expert blob; returns the number of failed checks.
 int check_blob(const cpu::NativeFmt& f, const std::vector<uint8_t>& blob, int seed, const std::string& label,
@@ -529,7 +529,7 @@ int main(int argc, char** argv) {
     setvbuf(stdout, nullptr, _IONBF, 0);   // keep the trail on a crash
     if (argc < 2) {
         std::fprintf(stderr, "usage: native_expert_parity <shard.gguf> [layer ...]\n"
-                             "       native_expert_parity --synthetic GU/DOWN ...   (ggml type names, e.g. q4_K/q5_1)\n"
+                             "       native_expert_parity --synthetic [--shape=2048x512] GU/DOWN ...   (ggml type names, e.g. q4_K/q5_1)\n"
                              "       native_expert_parity --q5_1-min\n"
                              "       native_expert_parity --bf16-embd\n");
         return 2;
@@ -553,6 +553,13 @@ int main(int argc, char** argv) {
     } else if (mode == "--synthetic") {
         for (int i = 2; i < argc; ++i) {
             const std::string arg = argv[i];
+            if (arg.rfind("--shape=", 0) == 0) {          // the pairs after it use this expert's sizes
+                if (std::sscanf(arg.c_str() + 8, "%lldx%lld", (long long*) &H, (long long*) &FF) != 2) {
+                    std::printf("%s: expected --shape=N_EMBDxN_FF\n", arg.c_str());
+                    ++failures;
+                }
+                continue;
+            }
             const size_t slash = arg.find('/');
             const int gu = slash == std::string::npos ? -1 : type_of(arg.substr(0, slash));
             const int dn = slash == std::string::npos ? -1 : type_of(arg.substr(slash + 1));

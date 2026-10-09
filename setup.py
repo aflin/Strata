@@ -20,7 +20,8 @@ What the first run does (each step is skipped when it is already done):
   6. prepares the model for Strata and fetches the MTP draft layer (~5 GB, from the original Qwen checkpoint)
   7. writes run-<model>.bat / run-<model>.sh and starts the model
 
-Options: --family qwen|swift|coder|unsloth|qwen36, --model Q2_0|IQ2_XS|IQ3_XXS|IQ3_S (qwen36: UD-IQ4_XS|UD-IQ3_S),
+Options: --family qwen|swift|coder|unsloth|qwen36|ornith|qwen36-bartowski|kat-coder, --model Q2_0|IQ2_XS|IQ3_XXS|IQ3_S
+(qwen36: UD-IQ4_XS|UD-IQ3_S, and the other files of docs/QWEN35MOE_GGUFS.md),
 --context 32768, --rope-scaling none|linear|yarn
 (--rope-scale F; past the trained 262144 the setup adds yarn and the factor is the final context over 262144,
 at least 1 - an explicit --rope-scaling none is refused for such a context), --vision yes|no|gpu|cpu, --port
@@ -71,6 +72,8 @@ HF_REVISIONS = {
     "unsloth/Qwen3.8-Flash-Next-GGUF": "38bb39ee97821de2c9009abb7e93950eec396e66",                   # 2026-09-30
     "unsloth/Qwen3.6-35B-A3B-MTP-GGUF": "5bc3e238d916f48a861bac2f8a1990a0e9b7e98d",
     "bartowski/Ornith-1.5-35B-A3B-GGUF": "64b0493d34a5ca4c1b4ad67bb99b41d74b4f07d6",
+    "bartowski/Qwen_Qwen3.6-35B-A3B-GGUF": "5c2410d71524f4f72b023ce8daf7a80528226d5f",
+    "Myric/KAT-Coder-V2.5-Dev-MTP-APEX-GGUF": "e4ae9970325413d582ba2c294122fc5567ec1dd7",
 }
 
 
@@ -208,6 +211,9 @@ QWEN36_ENGINE = (0, 1, 41)
 # A GGUF key only the engine's own qwen35moe support names (src/core/layout.cpp).  Not the bare architecture name: the
 # image encoder links llama.cpp, whose table of architectures has it.
 SMALL_ENGINE_MARK = b"qwen35moe.block_count"
+# Text only an engine with the expert formats of MORE_SIZES names (src/program/generate.cpp, STRATA_FORMATS_MARK):
+# Q6_K, IQ4_NL, MXFP4 and BF16 gate/up, IQ2_XS, IQ2_S, IQ3_S and Q2_K down, Q4_1 and Q2_K dense weights.
+FORMATS_ENGINE_MARK = b"expert formats 2:"
 
 MODELS = {
     # the original model only for now: Swift 1.5's Q2_0 files split one layer's experts across the two shards, which
@@ -282,6 +288,66 @@ ORNITH_FILES = {
     "Ornith-1.5-35B-A3B-IQ4_XS.gguf": (19278554784, "d6aef57fa948e9bba3ca4959b3c237ed898c605471f48c73a32cedbd24aabe70"),
     "Ornith-1.5-35B-A3B-IQ3_XXS.gguf": (15340447392, "8918ccb9ee29abe3875efec0c3e86f0e35ef0b8a03e3f0e1c422869859a518d0"),
 }
+# The other GGUFs of Qwen3.6-35B-A3B and its KAT-Coder fine-tune, each tested against llama.cpp on the same file
+# (docs/QWEN35MOE_GGUFS.md): offered by name (--family qwen36|qwen36-bartowski|kat-coder --model SIZE) and listed after
+# a family's regular sizes, never suggested over them.  They need an engine with the expert formats added for them
+# (FORMATS_ENGINE_MARK).  Per file: family, size, bytes, SHA-256 (the Hub's LFS pointers at the pinned revision), the
+# bytes of its routed experts without the draft layer's (read from the GGUF header), and the tokens/s it wrote on an
+# RTX 4070 Ti 12 GB (a 128-token answer, MTP drafts on).  Unsloth's UD-Q8_K_XL does not load (BF16 attention weights).
+MORE_SIZES = [
+    ("qwen36", "UD-IQ1_M", 11366414624, "223db8b347ebe3d75f43a0fd998eb86148c9744635066c6782662208ddc14867", 9347006464, 213),
+    ("qwen36", "UD-IQ2_XXS", 11819399456, "627e2b05f83088448e27861ec392d56efc2b178783cae5adfa4ad2d988441203", 9799991296, 204),
+    ("qwen36", "UD-IQ2_M", 11882969376, "b989da14b63b29bd469cb1fab5bd16b422ab921787569b4b2bb4fd61e26129b8", 9799991296, 202),
+    ("qwen36", "UD-Q2_K_XL", 12574128416, "ed7cda7e38985b4fcff76475865135039641d2bfbac3c169df15ca770f37fb0c", 10487857152, 186),
+    ("qwen36", "UD-IQ3_XXS", 14069266720, "36f9ec0e4c775f6efd3a61c1ea76f0875128469c3d012e3d9e2495a90e7a7150", 11632902144, 154),
+    ("qwen36", "UD-Q3_K_M", 17104402720, "8966dd0cd8c543c4228490a2a8b0e0814fc4f1e6a8e199ceed4de6754ae7b8e1", 14237564928, 119),
+    ("qwen36", "UD-Q3_K_XL", 17227569440, "3fba9ab57290b34726837521335bf9268397174f3dd662880e2d0c5264d17b81", 14237564928, 118),
+    ("qwen36", "UD-IQ4_NL", 18536192288, "d0ad78047bd0a583bfcb484e9defc63112c5f1f856e310dcf88dc48f2ebeae5b", 15546187776, 100),
+    ("qwen36", "UD-Q4_K_S", 21388319008, "2bee952b218e4a481430c59d8d3bdc7bae20bed0eb501326340c5fca7ae95d42", 18327011328, 91),
+    ("qwen36", "UD-Q4_K_M", 22663387424, "0b21525e972670ed59e1812e170b27c26355381f0656ecc4e25617ece7dac58b", 19568525312, 86),
+    ("qwen36", "UD-Q4_K_XL", 22853663008, "55983c5a75a1ab969824077b3bb3de4146e82a9234072b48ad4e8f92ad3fe9f1", 19635634176, 84),
+    ("qwen36", "MXFP4_MOE", 22182574368, "e1a4925d2ea132576daa9cb980b1102b970d919d896936b7b6e681ef5bc3d3f6", 18981322752, 83),
+    ("qwen36", "UD-Q5_K_S", 25538017568, "b773526fab7e47cd2da8f51c20f986f7912f0aee56811265839650c4bfd1a098", 22252879872, 66),
+    ("qwen36", "UD-Q5_K_M", 27087812896, "8ca8224c5519b50f286b9739f9ab1c2bc0759e02cfb6cbf48a09f0759eb2d319", 23767023616, 61),
+    ("qwen36", "UD-Q5_K_XL", 27159116064, "9de9a9420f61a0bb59bb2ca1ea170a6a57f6821fa1deec915bcaef523730a919", 23838326784, 60),
+    ("qwen36", "UD-Q6_K", 30011242784, "49935b04ad883c2f3d4da61f65b609d447dad67d0b08453b90abb09a1bb35464", 26619150336, 57),
+    ("qwen36", "UD-Q6_K_XL", 32611711264, "35fce994cd36104a7dc1bd8a4bdf13778145664c00fdef6773aebc9246e5019c", 29154607104, 52),
+    ("qwen36", "Q8_0", 37801097504, "c1283d8b80c3e38b2735ddbc9766d3b3126f44d6c484be419d4e101d09a76131", 34225520640, 45),
+    # bartowski's: IQ4_XS and IQ3_XXS first, as Ornith's (the sizes setup suggests by RAM in this family), then by size
+    ("qwen36-bartowski", "IQ4_XS", 19699553920, "afc7238af403ed454b7846454091b5e38b07575bdbb64c3e86777414dde4193c", 17112760320, 97),
+    ("qwen36-bartowski", "IQ3_XXS", 15761446528, "4eb30af2df0dde76fe8d0a60f0e88f285ee668dcb1b8da892ee5c13dd6b00399", 13295943680, 129),
+    ("qwen36-bartowski", "IQ2_XS", 11694831232, "a873df6cd354f49c87d4ab0382d5301b3fe9bb16ba68577a70efe6a57a2bd23d", 9386852352, 199),
+    ("qwen36-bartowski", "IQ2_M", 12964402816, "faae766ad5d1e09551a0f4deff9a3e8aa49618515d10e9fcae79f4e96ad4c178", 10582228992, 177),
+    ("qwen36-bartowski", "Q2_K", 13506778752, "673142cca6255bbb19774c8d438220d9ecfc3c8b215bc619d5e801bc37a35405", 11114905600, 170),
+    ("qwen36-bartowski", "Q3_K_M", 17117951616, "17350b1355d32397cffe7d4b446fd9361dbb01aa26bbf41fc950aa595033794f", 14554234880, 120),
+    ("qwen36-bartowski", "IQ3_XS", 17110087296, "815607fc5ce720f30552d6aa901633629560daaeb76dc14ddaab3c14628559e7", 14554234880, 118),
+    ("qwen36-bartowski", "IQ3_M", 17791661696, "aedaa7010e09065d3a4129a624e45804ccfa1950838e67ee935b87d1e71a3d1f", 15225323520, 114),
+    ("qwen36-bartowski", "Q3_K_XL", 18222888576, "1451710903a99bfe99edb7b4de3f12ae80e0ef4d90cd6c64c774a4bde8b7f8ad", 15225323520, 107),
+    ("qwen36-bartowski", "IQ4_NL", 20754978432, "41e9f836690bde9619928538cb4dd170472d2e851243637f7092937a151297ad", 18119393280, 96),
+    ("qwen36-bartowski", "Q4_0", 20836243072, "52312daa5b2190c1f5723d33c3315c01c55af4206f6c6e6eb63f3d8dd52bb85e", 18203279360, 93),
+    ("qwen36-bartowski", "Q4_K_M", 22285080192, "b46fedd33e0bfb0cae308aa3c158d0a4b2c4a1d2185a1ed6f093cdaf39064772", 19503513600, 88),
+    ("qwen36-bartowski", "Q4_1", 22868448896, "8babe2c6f46b43815cae7ec2b970be8508d6867234ebf16c376bd9cc79477354", 20132659200, 84),
+    ("qwen36-bartowski", "Q5_K_M", 25913185920, "ec438d1326eb11d8bb94785c54739cd4b60b01ae32bd8532e232a046b19d296d", 22858956800, 71),
+    ("qwen36-bartowski", "Q6_K", 30947309184, "a97ef79439194d8ec722bc0b6c316f0c41c0b477b35bbae8177c772ecbb0eb91", 27724349440, 58),
+    ("qwen36-bartowski", "Q8_0", 37812647552, "bc57de096ec30e45773aa86103f35a8a32cea01f2193a53a3c636d618e4434e9", 34225520640, 44),
+    # Myric's i-quality APEX mixes, Qwen3.6's draft layer transplanted onto KAT-Coder: the newer upload first
+    ("kat-coder", "i-quality-v2", 20666451296, "f4501b4f54577da43a1d088bd3b81ce4df900a553f5407bc5d29bcbe54af66ef", 18056478720, 86),
+    ("kat-coder", "i-quality", 20724843904, "16fd4d26da3ac67957c2b785973654c3c78b8ea91fce350d18a8cad7675379e9", 18056478720, 81),
+]
+MORE_KEY_PREFIX = {"qwen36": "Qwen3.6-", "qwen36-bartowski": "Qwen3.6-bartowski-", "kat-coder": "KAT-Coder-"}
+MORE_FILE = {"qwen36": "Qwen3.6-35B-A3B-{q}.gguf", "qwen36-bartowski": "Qwen_Qwen3.6-35B-A3B-{q}.gguf",
+             "kat-coder": "KAT-Coder-V2.5-Dev-MTP-APEX-{q}.gguf"}
+BARTOWSKI36_FILES, KAT_FILES = {}, {}
+for _fam, _size, _bytes, _sha, _experts, _tps in MORE_SIZES:
+    _arena = round(_experts / 1e9, 1)
+    MODELS[MORE_KEY_PREFIX[_fam] + _size] = {
+        "size": _size, "about": f"tested against llama.cpp, {_tps} tokens/s on a 12 GB RTX 4070 Ti"
+                               + (" (just over the quality line: docs/QWEN35MOE_GGUFS.md)" if _size == "UD-Q5_K_XL" else ""),
+        # RAM: the experts and ~11 GB beside them, as the regular sizes' measured lines (26 GB for 15.2 GB of experts)
+        "download_gb": round(_bytes / 1e9, 1), "ram_gb": 2 * round((_arena + 11) / 2), "arena_gb": _arena,
+        "families": (_fam,), "engine": QWEN36_ENGINE, "more": True}
+    {"qwen36": QWEN36_FILES, "qwen36-bartowski": BARTOWSKI36_FILES, "kat-coder": KAT_FILES}[_fam][
+        MORE_FILE[_fam].format(q=_size)] = (_bytes, _sha)
 # The experimental Unsloth file's four shards at the pinned revision: name -> (bytes, sha256), checked after the
 # download (setup trusts no other model file by name and size alone either: check_shards reads their directories).
 UNSLOTH_SHARDS = {
@@ -370,6 +436,26 @@ FAMILIES = {
                "pack_args": ["--compat-bf16"], "sha256": ORNITH_FILES, "profile": "expert-profile-qwen36.bin",
                "license": "MIT: https://huggingface.co/ornith-ai/Ornith-1.5-35B-A3B",
                "own_mtp": True, "ple": False, "one_gpu": True, "nvidia_only": True},
+    # Qwen3.6-35B-A3B in bartowski's GGUFs (each with the MTP layer, stored Q8_0) and KAT-Coder-V2.5-Dev, Kwaipilot's
+    # coding fine-tune of it, in Myric's APEX GGUFs with Qwen3.6's draft layer: the same engine path as qwen36.  Their
+    # sizes are MORE_SIZES (docs/QWEN35MOE_GGUFS.md).  Their tags must not start with another family's ("qwen36-").
+    "qwen36-bartowski": {"title": "Qwen3.6-35B-A3B (bartowski)", "by": "the same model in bartowski's GGUFs",
+                         "about": "16 sizes, 12-38 GB downloads, each tested against llama.cpp; no images yet",
+                         "hf": hf("bartowski/Qwen_Qwen3.6-35B-A3B-GGUF"), "file": "Qwen_Qwen3.6-35B-A3B-{q}.gguf",
+                         "shards": 1, "tag": "bartowski-qwen36-", "mmproj_hf": hf("bartowski/Qwen_Qwen3.6-35B-A3B-GGUF"),
+                         "mmproj": None, "name": "qwen3.6-35b-a3b-bartowski", "vision": False,
+                         "pack_args": ["--compat-bf16"], "sha256": BARTOWSKI36_FILES,
+                         "profile": "expert-profile-qwen36.bin",
+                         "license": "Apache 2.0: https://huggingface.co/bartowski/Qwen_Qwen3.6-35B-A3B-GGUF",
+                         "own_mtp": True, "ple": False, "one_gpu": True, "nvidia_only": True},
+    "kat-coder": {"title": "KAT-Coder-V2.5-Dev", "by": "Kwaipilot's agentic-coding fine-tune of Qwen3.6-35B-A3B",
+                  "about": "Myric's APEX GGUFs with Qwen3.6's draft layer (21 GB download); no images yet",
+                  "hf": hf("Myric/KAT-Coder-V2.5-Dev-MTP-APEX-GGUF"), "file": "KAT-Coder-V2.5-Dev-MTP-APEX-{q}.gguf",
+                  "shards": 1, "tag": "kat-coder-", "mmproj_hf": hf("Myric/KAT-Coder-V2.5-Dev-MTP-APEX-GGUF"),
+                  "mmproj": None, "name": "kat-coder-v2.5-dev", "vision": False,
+                  "pack_args": ["--compat-bf16"], "sha256": KAT_FILES, "profile": "expert-profile-qwen36.bin",
+                  "license": "Apache 2.0: https://huggingface.co/Myric/KAT-Coder-V2.5-Dev-MTP-APEX-GGUF",
+                  "own_mtp": True, "ple": False, "one_gpu": True, "nvidia_only": True},
 }
 MMPROJ = "mmproj-Qwen3.8-Flash-Next-BF16.gguf"
 # EXPERIMENTAL, off by default (setup asks): a control vector shipped with the repository, see its README
@@ -1205,6 +1291,19 @@ def engine_runs_small(eng: Path) -> bool:
         return False
 
 
+def engine_runs_more(eng: Path) -> bool:
+    """Does the engine in `eng` have the expert formats MORE_SIZES need: its program names FORMATS_ENGINE_MARK."""
+    try:
+        return FORMATS_ENGINE_MARK in (eng / EXE).read_bytes()
+    except OSError:
+        return False
+
+
+def engine_runs_model(eng: Path, model: str) -> bool:
+    """Does the engine in `eng` run this MODELS entry of a 35B-A3B family."""
+    return engine_runs_small(eng) and (not MODELS[model].get("more") or engine_runs_more(eng))
+
+
 def small_model(d: dict) -> bool:
     """A MODELS entry of a 35B-A3B family."""
     return any(small_family(f) for f in d.get("families", ()))
@@ -1220,8 +1319,10 @@ def qwen36_recommended(ram: float) -> bool:
 def small_size(family: str, ram: float, vram_gb: float = 0.0) -> str:
     """The size of a 35B-A3B family suggested for this RAM: the biggest (first listed) whose experts fit the RAM with
     the usual room beside them (no low-RAM mode), else the smallest (in the low-RAM mode).  On a card under
-    SMALL_MODEL_VRAM_GB the smallest: the 4-bit size needs ~0.4 GB more of the card free (measured, see there)."""
+    SMALL_MODEL_VRAM_GB the smallest: the 4-bit size needs ~0.4 GB more of the card free (measured, see there).  The
+    MORE_SIZES files only where the family has no other sizes (qwen36-bartowski, kat-coder)."""
     sizes = [m for m in MODELS if family in MODELS[m].get("families", ()) and not MODELS[m].get("experimental")]
+    sizes = [m for m in sizes if not MODELS[m].get("more")] or sizes
     if 0 < vram_gb < SMALL_MODEL_VRAM_GB:
         return min(sizes, key=lambda m: MODELS[m]["arena_gb"])
     return next((m for m in sizes if not low_ram_needed(m, ram)), min(sizes, key=lambda m: MODELS[m]["arena_gb"]))
@@ -1591,15 +1692,18 @@ GGUF_QUANT = re.compile(r"(?<![A-Za-z0-9])((?:UD-)?(?:I?Q\d+(?:_[A-Za-z0-9]+)*|B
 SUPPORTED_GGUFS = ("Strata runs ISTA-DASLab's GSQ-RCO files (Qwen3.8-Flash-Next Q2_0, IQ2_XS, IQ3_XXS, IQ3_S; Swift "
                    "1.5's; the Coder's IQ1_M) and Unsloth's UD-Q4_K_XL and UD-IQ4_XS only (and Unsloth's "
                    "Qwen3.6-35B-A3B-MTP UD-IQ4_XS and UD-IQ3_S; Ornith-1.5-35B-A3B's IQ4_XS and IQ3_XXS by "
-                   "bartowski): other GGUFs (Unsloth's "
-                   "UD-IQ3_XXS or "
-                   "UD-Q2_K_XL, K-quants) cannot be used")
+                   "bartowski; the other Qwen3.6-35B-A3B and KAT-Coder files of docs/QWEN35MOE_GGUFS.md, by their "
+                   "published names): other GGUFs (Flash-Next's from Unsloth in UD-IQ3_XXS or UD-Q2_K_XL, "
+                   "K-quants) cannot be used")
 
 
 def gguf_unsupported(name: str) -> str | None:
-    """#444: the quantization a GGUF's name says, when it is one Strata cannot run (not a setup size); else None."""
+    """#444: the quantization a GGUF's name says, when it is one Strata cannot run (not a setup size); else None.  A
+    MORE_SIZES file counts under its published name only (Flash-Next's UD-IQ3_XXS is still not one)."""
+    if any(name in FAMILIES[f]["sha256"] for d in MODELS.values() if d.get("more") for f in d["families"]):
+        return None
     m = GGUF_QUANT.search(name)
-    sizes = {size_of(k).upper() for k in MODELS}
+    sizes = {size_of(k).upper() for k, d in MODELS.items() if not d.get("more")}
     return m.group(1) if m and m.group(1).upper() not in sizes and not name.lower().startswith("mmproj") else None
 
 
@@ -2620,7 +2724,7 @@ def hipblaslt_table(arch, lib_dirs, ver=None):
     return None
 
 
-def build_engine_hip(gpu, llama, vision="none") -> Path:
+def build_engine_hip(gpu, llama, vision="none", more=False) -> Path:
     """Compile the HIP engine for this AMD GPU into engine/ (again only when its source changed: a `git pull`).
     gpu["archs"]: every architecture it needs code for (the cards of a layer split), else gpu["arch"].  vision "cpu"
     (#304): the image encoder too, for the CPU (there is no HIP encoder build yet)."""
@@ -2633,7 +2737,7 @@ def build_engine_hip(gpu, llama, vision="none") -> Path:
     has_archs = set(archs) <= set(meta.get("archs", []))
     floor = cpu_floor(cpu_info()[1])                     # "" on an AVX2 CPU: the normal engine
     engine_ok = meta.get("backend") == "hip" and (eng / EXE).exists() and meta.get("src") == src and has_archs and \
-        (meta.get("isa_floor") or "") == floor
+        (meta.get("isa_floor") or "") == floor and (not more or engine_runs_more(eng))     # as build_engine's
     vision_ok = vision == "none" or ((eng / VEXE).exists() and meta.get("vision_src") == vsrc)
     if engine_ok and vision_ok:
         ok("engine already built for this PC")
@@ -2657,7 +2761,7 @@ def build_engine_hip(gpu, llama, vision="none") -> Path:
              "10-20 minutes, once) ...")
     cmake_build(ROOT, ROOT / "build-hip", "strata",
                 ["-DSTRATA_ENABLE_HIP=ON", "-DSTRATA_ENABLE_CUDA=OFF", "-DSTRATA_BUILD_TESTS=OFF",
-                 "-DSTRATA_PREFILL_MMQ=ON", "-DCMAKE_HIP_ARCHITECTURES=" + ";".join(archs),
+                 "-DSTRATA_PREFILL_MMQ=ON", "-DSTRATA_Q6K_EXPERTS=ON", "-DCMAKE_HIP_ARCHITECTURES=" + ";".join(archs),
                  f"-DCMAKE_HIP_COMPILER={root / 'llvm' / 'bin' / 'clang++'}", f"-DCMAKE_HIP_COMPILER_ROCM_ROOT={root}",
                  "-DCMAKE_PREFIX_PATH=" + ";".join([str(root), *libs]),
                  f"-DCMAKE_HIP_FLAGS=--rocm-path={root} --rocm-device-lib-path={bitcode}",
@@ -3331,7 +3435,7 @@ def prebuilt_vision(meta: dict, gpu: dict, vision: str) -> str:
     return vision
 
 
-def build_engine(gpu, vision, yes, llama, toolkit=None) -> Path:
+def build_engine(gpu, vision, yes, llama, toolkit=None, more=False) -> Path:
     """Compile the engine (and, for images, the encoder) for this GPU; the results go to engine/.  A compiled
     engine whose source files changed since (a `git pull`) is compiled again: only the changed files, a few minutes.
     toolkit 12 (default: 12 for a card older than CUDA 13 supports): the experimental CUDA 12 engine, in
@@ -3352,8 +3456,10 @@ def build_engine(gpu, vision, yes, llama, toolkit=None) -> Path:
     # same; the compile keeps the generations it was built for
     new_arch = local and not set(archs) <= built
     floor = cpu_floor(cpu_info()[1])                     # "" on an AVX2 CPU: the normal engine
+    # more: a MORE_SIZES file - an engine of this source without its formats (compiled in a build folder configured
+    # when the Q6_K experts were off by default) is compiled again, now with them named
     engine_ok = local and (eng / EXE).exists() and meta.get("src") == src and not new_arch and \
-        (meta.get("isa_floor") or "") == floor
+        (meta.get("isa_floor") or "") == floor and (not more or engine_runs_more(eng))
     vision_ok = not want_vision or ((eng / VEXE).exists() and (not local or meta.get("vision_src") == vsrc))
     if engine_ok and vision_ok:
         ok("engine already built for this PC")
@@ -3369,7 +3475,9 @@ def build_engine(gpu, vision, yes, llama, toolkit=None) -> Path:
             "  The engine's source changed: compiling it again (only what changed, a few minutes) ..."
             if local and (eng / EXE).exists() else "  Compiling the Strata engine for your GPU (10-20 minutes, once) ...")
         cmake_build(ROOT, bdir, "strata",
-                    ["-DSTRATA_ENABLE_CUDA=ON", "-DSTRATA_BUILD_TESTS=OFF", f"-DCMAKE_CUDA_ARCHITECTURES={cuda_archs}",
+                    # STRATA_Q6K_EXPERTS named: a build folder configured when it was off by default keeps it off
+                    ["-DSTRATA_ENABLE_CUDA=ON", "-DSTRATA_BUILD_TESTS=OFF", "-DSTRATA_Q6K_EXPERTS=ON",
+                     f"-DCMAKE_CUDA_ARCHITECTURES={cuda_archs}",
                      f"-DCMAKE_CUDA_COMPILER={nvcc}", *toolkit_root_defs(nvcc), f"-DSTRATA_GGML_DIR={llama}",
                      *engine_defs(archs, toolkit),
                      *isa_floor_defs(floor, bdir, meta)],
@@ -3989,6 +4097,18 @@ def model_config(path: Path) -> bool:
         why = "not valid JSON"
     warn(f"skipped {path.name} ({why}): it is not a Strata model config")
     return False
+
+
+def on_this_pc(family: str, model: str, models_dir) -> str:
+    """For the menus: "installed" (setup wrote its config here), "downloaded" (its files are in the models folder,
+    finished, but it is not set up), or ""."""
+    fam = FAMILIES[family]
+    tag = fam["tag"] + size_of(model)
+    if (ROOT / f"strata-{tag.lower()}.json").exists():
+        return "installed"
+    folder = Path(models_dir) / tag
+    shards = [folder / model_file(fam, model, i) for i in range(1, model_shards(fam, model) + 1)]
+    return "downloaded" if all(sh.exists() and done(sh) for sh in shards) else ""
 
 
 def installed_configs():
@@ -5075,6 +5195,7 @@ def main() -> int:
     floor_models = [m for m, d in MODELS.items()
                     if a.family is None or (a.family in d.get("families", ()) if small_family(a.family)
                                             else not small_model(d))]
+    floor_models = [m for m in floor_models if not MODELS[m].get("more")] or floor_models   # MORE_SIZES: never the floor
     smallest = min(floor_models, key=lambda m: (MODELS[m]["ram_gb"], MODELS[m]["arena_gb"]))
     need = MODELS[smallest]["ram_gb"]
     small_name = "the Coder" if smallest == "IQ1_M" else f"{FAMILIES[MODELS[smallest].get('families', ('qwen',))[0]]['title']} " \
@@ -5130,6 +5251,8 @@ def main() -> int:
         say()
         any_fits = False
         for m, d in MODELS.items():
+            if d.get("more"):                          # 36 more 35B-A3B files: the family's size list shows them
+                continue
             verdict = "fits" if ram >= d["ram_gb"] else "tight" if ram >= d["ram_gb"] - 8 else "does not fit"
             if d.get("budget"):
                 verdict = (("EXPERIMENTAL, " if d.get("experimental") else "") +
@@ -5145,6 +5268,8 @@ def main() -> int:
                 verdict += " - untested on AMD (its batched prompt path is NVIDIA-only)"
             any_fits = any_fits or not verdict.startswith("does not fit")
             say(f"  {m:8s} needs ~{d['ram_gb']} GB RAM: {verdict}")
+        say(f"  (and {sum(1 for d in MODELS.values() if d.get('more'))} more files of Qwen3.6-35B-A3B and KAT-Coder, "
+            "listed with their model in step 2)")
         if qwen36_recommended(ram) and any_fits:
             say(f"\nNo Qwen3.8-Flash-Next size fits {ram:.0f} GB of RAM well: setup suggests Qwen3.6-35B-A3B "
                 f"{size_of(qwen36_size(ram))} (--family qwen36).")
@@ -5168,7 +5293,10 @@ def main() -> int:
             rec_fam = "qwen36"                         # no Flash-Next size fits this RAM: the smaller model
         for i, f in enumerate(fams, 1):
             d = FAMILIES[f]
+            here = {m: on_this_pc(f, m, a.models_dir) for m in MODELS if f in MODELS[m].get("families", ("qwen", "swift"))}
+            here = [f"{size_of(m)} {w}" for m, w in here.items() if w]
             say(f"  {i}) {d['title']:20s} {d['by']} - {d['about']}" + ("   [experimental]" if d.get("experimental") else "")
+                + (f"   [on this PC: {', '.join(here)}]" if here else "")
                 + ((f"   (recommended for {ram:.0f} GB of RAM: {size_of(qwen36_size(ram))})" if f == "qwen36" else
                     f"   (recommended for Strix Halo: {STRIX_HALO_MODEL})") if f == rec_fam and rec_fam != fams[0]
                    else ""))
@@ -5195,15 +5323,17 @@ def main() -> int:
     for i, m in enumerate(names, 1):
         d = MODELS[m]
         fit = "" if ram >= d["ram_gb"] else f"   <- needs {d['ram_gb']} GB RAM, you have {ram:.0f}"
+        here = on_this_pc(family, m, a.models_dir)
+        here = f"   [{here}]" if here else ""
         if d.get("budget"):
             say(f"  {i}) {size_of(m)} {d['about']}; download {d['download_gb']:.0f} GB, keeps ~"
-                f"{resident_budget_gib(m, ram)} GB of its {d['arena_gb']:.0f} GB of experts in RAM{fit}")
+                f"{resident_budget_gib(m, ram)} GB of its {d['arena_gb']:.0f} GB of experts in RAM{fit}{here}")
             continue
         if low_ram_needed(m, ram) and low_ram_fits(m, ram, low_ram_vram(gpu)) and a.low_ram != "off":
             fit = (f"   <- fits in the low-RAM mode (the GPU holds ~{100 * low_ram_gpu_share(m, low_ram_vram(gpu)):.0f}%, "
                    + ("the rest in RAM)" if low_ram_resident(m, ram, low_ram_vram(gpu)) else "the rest from the SSD)"))
         say(f"  {i}) {size_of(m):8s} {d['about']}; download {d['download_gb']:.0f} GB, uses ~{d['arena_gb']:.0f} GB of "
-            f"RAM{fit}")
+            f"RAM{fit}{here}")
     rec = str(names.index("IQ3_XXS") + 1) if ram >= 60 and "IQ3_XXS" in names else "1"
     if small_family(family):                           # the biggest size whose experts fit the RAM (small_size)
         rec = str(names.index(small_size(family, ram, gpu["vram_gb"])) + 1)
@@ -5477,15 +5607,17 @@ def main() -> int:
     else:
         eng = None if a.build or hip else get_prebuilt(a.prebuilt, gpu, vision, **({"toolkit": 12} if cuda_tk == 12
                                                                                     else {}))
-    if eng is not None and own_mtp and not engine_runs_small(eng):
+    if eng is not None and own_mtp and not engine_runs_model(eng, model):
         # Qwen3.6 / Ornith: no ready-made engine runs them yet (the published ones predate qwen35moe), so this PC
         # compiles the engine from this checkout, as it does for a card the ready-made one has no code for; that
-        # engine runs every family.  A ready-made engine that has it is used as is.
+        # engine runs every family.  A ready-made engine that has it is used as is.  The MORE_SIZES files need the
+        # expert formats added for them as well (FORMATS_ENGINE_MARK).
         ver = json.loads((eng / "BUILD.json").read_text(encoding="utf-8")).get("version", "?")
         if hip and WIN:
             fail(f"the ready-made AMD engine ({ver}) does not run {fam['title']} yet",
                  "compiling it on Windows: tools\\hip\\build_windows.bat (docs/AMD_HIP.md), or choose another model")
-        say(f"  The ready-made engine ({ver}) does not run {fam['title']} yet: compiling the engine on this PC instead")
+        what = fam['title'] if not engine_runs_small(eng) else f"{fam['title']} {size_of(model)} (its expert formats)"
+        say(f"  The ready-made engine ({ver}) does not run {what} yet: compiling the engine on this PC instead")
         eng = None
     if eng is not None and not hip and json.loads((eng / "BUILD.json").read_text(encoding="utf-8")).get("source") != "local":
         pip_cuda_libs(cuda_tk)
@@ -5495,7 +5627,9 @@ def main() -> int:
         else:
             vision = prebuilt_vision(json.loads((eng / "BUILD.json").read_text(encoding="utf-8")), gpu, vision)
     if eng is None:
-        eng = build_engine_hip(gpu, llama, vision) if hip else build_engine(gpu, vision, a.yes, llama, toolkit=cuda_tk)
+        more = own_mtp and bool(MODELS[model].get("more"))
+        eng = build_engine_hip(gpu, llama, vision, more=more) if hip else \
+            build_engine(gpu, vision, a.yes, llama, toolkit=cuda_tk, more=more)
     meta = json.loads((eng / "BUILD.json").read_text(encoding="utf-8"))
     if hip and WIN:                                    # the ready-made engine's rocm/bin, first on the engine's PATH
         lib_dirs = [str(d) for d in hip_lib_dirs(eng)]
@@ -5510,6 +5644,10 @@ def main() -> int:
         fail(f"{fam['title']} {size_of(model)} needs an engine with the qwen35moe support (Strata "
              f"{'.'.join(map(str, QWEN36_ENGINE))} source or newer); this one ({meta.get('version')}) has none",
              "update Strata and run setup again with --build")
+    if own_mtp and not engine_runs_model(eng, model):
+        fail(f"{fam['title']} {size_of(model)} needs an engine with the expert formats added for it "
+             f"(docs/QWEN35MOE_GGUFS.md); this one ({meta.get('version')}) has none",
+             "use a Strata checkout of the qwen35moe-more-models branch and run setup again with --build")
     ok(f"engine: {eng / EXE}")
 
     # ---- 5. the model files

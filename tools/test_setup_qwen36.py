@@ -50,7 +50,7 @@ class Tables(unittest.TestCase):
     def test_family(self):
         fam = setup.FAMILIES["qwen36"]
         self.assertEqual(list(setup.FAMILIES)[0], "qwen")                 # never the default family
-        self.assertEqual(list(setup.FAMILIES)[-2:], ["qwen36", "ornith"])  # the menu's numbers stay as they were
+        self.assertEqual(list(setup.FAMILIES)[4:6], ["qwen36", "ornith"])  # the menu's numbers stay as they were
         self.assertEqual(fam["tag"], "qwen36-")
         self.assertEqual(fam["name"], "qwen3.6-35b-a3b")
         self.assertEqual(fam["hf"], BASE)
@@ -62,7 +62,8 @@ class Tables(unittest.TestCase):
         self.assertIn("Apache 2.0", fam["license"])
 
     def test_sizes(self):
-        self.assertEqual([m for m in setup.MODELS if "qwen36" in setup.MODELS[m].get("families", ())], [IQ4, IQ3])
+        self.assertEqual([m for m in setup.MODELS if "qwen36" in setup.MODELS[m].get("families", ())
+                          and not setup.MODELS[m].get("more")], [IQ4, IQ3])   # the others: test_setup_qwen36_more.py
         self.assertEqual((setup.size_of(IQ4), setup.size_of(IQ3)), ("UD-IQ4_XS", "UD-IQ3_S"))
         self.assertEqual(setup.MODELS[IQ4]["arena_gb"], 15.2)              # 14.17 GiB, measured
         self.assertAlmostEqual(setup.MODELS[IQ4]["arena_gb"], 14.17 * 2**30 / 1e9, places=1)
@@ -82,7 +83,7 @@ class Tables(unittest.TestCase):
         fam = setup.FAMILIES["qwen36"]
         self.assertEqual([setup.model_file(fam, m, 1) for m in (IQ4, IQ3)], [F_IQ4, F_IQ3])
         self.assertEqual([setup.model_shards(fam, m) for m in (IQ4, IQ3)], [1, 1])
-        self.assertEqual(fam["sha256"], {
+        self.assertEqual({k: fam["sha256"][k] for k in (F_IQ4, F_IQ3)}, {
             F_IQ4: (18209036576, "df27a780435b7b45c2597536112ea3cb091f8544c3d0c3318d9f4258b31f7adf"),
             F_IQ3: (15346432288, "ab639a7f330f96c47d3e6c2dd2d6445182e7b763e17e6048dc850a71bbc9f27f")})
         self.assertEqual(setup.HF_REVISIONS["unsloth/Qwen3.6-35B-A3B-MTP-GGUF"], REV)
@@ -173,7 +174,7 @@ class Base(unittest.TestCase):
         self.tmp.cleanup()
 
     def main(self, argv, ram=RAM64, version="0.1.40", found=None, amd=(), answers=None, free=500.0, source="local",
-             runs_small=True):
+             runs_small=True, runs_more=True):
         """answers: None = --yes; else {words of a question: its answer} (Enter for the others).
         -> (exit code, printed text, the config written or None)."""
         def fake_input(prompt=""):
@@ -186,7 +187,9 @@ class Base(unittest.TestCase):
         eng.mkdir(exist_ok=True)
         (eng / "BUILD.json").write_text(json.dumps({"version": version, "source": source}))
         # runs_small: the engine names qwen35moe's keys (this checkout's); False: a ready-made 0.1.40 or an older build
-        (eng / setup.EXE).write_bytes(b"\0" + (setup.SMALL_ENGINE_MARK if runs_small else b"qwen4exp.block_count"))
+        # runs_more: it has the expert formats of setup.MORE_SIZES (this branch's); False: #1402's or a release's
+        (eng / setup.EXE).write_bytes(b"\0" + (setup.SMALL_ENGINE_MARK if runs_small else b"qwen4exp.block_count")
+                                      + (setup.FORMATS_ENGINE_MARK if runs_small and runs_more else b""))
         self.builds = []
 
         def fake_build(*a, **k):                                         # a compile here: this checkout's engine
@@ -194,7 +197,7 @@ class Base(unittest.TestCase):
             if json.loads((eng / "BUILD.json").read_text()).get("source") == "local":
                 return eng                                               # compiled here, same source: kept as is
             (eng / "BUILD.json").write_text(json.dumps({"version": "0.1.40", "source": "local"}))
-            (eng / setup.EXE).write_bytes(setup.SMALL_ENGINE_MARK)
+            (eng / setup.EXE).write_bytes(setup.SMALL_ENGINE_MARK + setup.FORMATS_ENGINE_MARK)
             return eng
         found = nvidia() if found is None else found
         for old in self.t.glob("strata-*.json"):                          # this run's config only
