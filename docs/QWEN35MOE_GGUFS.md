@@ -162,7 +162,8 @@ as the regular sizes do. `setup --check` does not list them one by one.
   their experts as well; on this 64 GB PC they all fit.
 - Older NVIDIA cards (Pascal, Volta): there the engine reads prompts through the decode windows, which drifts with
   length (KL 0.06 against the batched prompt path at 8K, measured on Qwen3.6 UD-IQ4_XS on the RTX 4070 Ti).
-- Answers longer than 40 tokens per prompt, and image input (none of these has images in Strata).
+- Answers longer than 40 tokens per prompt, and image input with these files (images: [QWEN36.md](QWEN36.md),
+  Limits; tested with Ornith and KAT-Coder).
 - Setup's install of these files end to end: its tests (`tools/test_setup_qwen36_more.py`) run it with the downloads,
   the compile and the GPU mocked; the files themselves were downloaded, checked and packed by the test scripts above.
 - Faster K-quant prompt kernels (`-DSTRATA_MMQ_KQUANTS=ON`): not in setup's build, and not in these numbers. With them,

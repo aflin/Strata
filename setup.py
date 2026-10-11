@@ -440,20 +440,21 @@ FAMILIES = {
     # Qwen3.6-35B-A3B in bartowski's GGUFs (each with the MTP layer, stored Q8_0) and KAT-Coder-V2.5-Dev, Kwaipilot's
     # coding fine-tune of it, in Myric's APEX GGUFs with Qwen3.6's draft layer: the same engine path as qwen36.  Their
     # sizes are MORE_SIZES (docs/QWEN35MOE_GGUFS.md).  Their tags must not start with another family's ("qwen36-").
+    # Images: Qwen3.6's mmproj for both (Myric publishes none; KAT i-quality-v2 read pictures right with it).
     "qwen36-bartowski": {"title": "Qwen3.6-35B-A3B (bartowski)", "by": "the same model in bartowski's GGUFs",
-                         "about": "16 sizes, 12-38 GB downloads, each tested against llama.cpp; no images yet",
+                         "about": "16 sizes, 12-38 GB downloads, each tested against llama.cpp",
                          "hf": hf("bartowski/Qwen_Qwen3.6-35B-A3B-GGUF"), "file": "Qwen_Qwen3.6-35B-A3B-{q}.gguf",
                          "shards": 1, "tag": "bartowski-qwen36-", "mmproj_hf": hf("bartowski/Qwen_Qwen3.6-35B-A3B-GGUF"),
-                         "mmproj": None, "name": "qwen3.6-35b-a3b-bartowski", "vision": False,
+                         "mmproj": "mmproj-Qwen_Qwen3.6-35B-A3B-bf16.gguf", "name": "qwen3.6-35b-a3b-bartowski",
                          "pack_args": ["--compat-bf16"], "sha256": BARTOWSKI36_FILES,
                          "profile": "expert-profile-qwen36.bin",
                          "license": "Apache 2.0: https://huggingface.co/bartowski/Qwen_Qwen3.6-35B-A3B-GGUF",
                          "own_mtp": True, "ple": False, "one_gpu": True, "nvidia_only": True},
     "kat-coder": {"title": "KAT-Coder-V2.5-Dev", "by": "Kwaipilot's agentic-coding fine-tune of Qwen3.6-35B-A3B",
-                  "about": "Myric's APEX GGUFs with Qwen3.6's draft layer (21 GB download); no images yet",
+                  "about": "Myric's APEX GGUFs with Qwen3.6's draft layer (21 GB download)",
                   "hf": hf("Myric/KAT-Coder-V2.5-Dev-MTP-APEX-GGUF"), "file": "KAT-Coder-V2.5-Dev-MTP-APEX-{q}.gguf",
-                  "shards": 1, "tag": "kat-coder-", "mmproj_hf": hf("Myric/KAT-Coder-V2.5-Dev-MTP-APEX-GGUF"),
-                  "mmproj": None, "name": "kat-coder-v2.5-dev", "vision": False,
+                  "shards": 1, "tag": "kat-coder-", "mmproj_hf": hf("bartowski/Qwen_Qwen3.6-35B-A3B-GGUF"),
+                  "mmproj": "mmproj-Qwen_Qwen3.6-35B-A3B-bf16.gguf", "name": "kat-coder-v2.5-dev",
                   "pack_args": ["--compat-bf16"], "sha256": KAT_FILES, "profile": "expert-profile-qwen36.bin",
                   "license": "Apache 2.0: https://huggingface.co/Myric/KAT-Coder-V2.5-Dev-MTP-APEX-GGUF",
                   "own_mtp": True, "ple": False, "one_gpu": True, "nvidia_only": True},
